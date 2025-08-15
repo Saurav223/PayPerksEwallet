@@ -18,6 +18,7 @@ Project Dependencies (Python Libraries):
     -hashlib for password hashing
     -matplotlib for figures
     -uuid for session management
+    -ping3 for ping
 
 Requirements
   -Python3 (with standard library)
@@ -25,5 +26,6 @@ Requirements
   -Pillow
   -mysql-connector-python
   -matplotlib
+  -ping3
 
 Create a MySQL server and replace the connection parameters to connect the app with your own database.
