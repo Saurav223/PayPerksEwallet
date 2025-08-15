@@ -1,10 +1,11 @@
 import customtkinter as ctk
-import datetime
 from dashboard_home import DashboardHome
 from settings import SettingsManager
 from transactions import TransactionManager
 import threading
-from  session_manager import SessionManager 
+from  session_manager import SessionManager
+from datetime import datetime, timedelta
+from tkinter import messagebox
 
 class PayPerksDashboard:
     def __init__(self, user_email,db):
@@ -14,10 +15,12 @@ class PayPerksDashboard:
         self.user_email = user_email
         self.db = db
         self.user_data = self.db.get_user_by_email(self.user_email)
+        self.expiry = datetime.now() + timedelta(minutes=2)
         self.window = ctk.CTk(fg_color="white")
         self.window.title('PayPerks Dashboard')
         self.window.geometry('925x500')
         self.window.resizable(False, False)
+
         
         # Initialize components
         self.dashboard_home = DashboardHome(self.window, user_email,self.user_data,self.db)
@@ -26,15 +29,16 @@ class PayPerksDashboard:
         
         self.setup_sidebar()
         self.setup_frames()
-       # self.check_session_expiry()
+        self.session_check_id = None
+        self.start_session_check()
         
         # Show dashboard by default
         self.show_dashboard()
+        self.session = SessionManager(self.db)
         threading.Thread(target=self.session_init,daemon=True).start()
 
     def session_init(self):
-        session = SessionManager(self.db)
-        result = session.create_session(self.user_data[5])
+        result = self.session.create_session(self.user_data[5])
         self.session_id = result[0]
         self.expiry = result[1]
 
@@ -105,14 +109,29 @@ class PayPerksDashboard:
 
     def dashboard_clicked(self):
         self.set_active('dashboard')
+        ping = self.session.get_ping("google.com")
+        print(f"Ping: {ping} ms")  
+        if ping is None or ping > 200 or ping == 0:
+            messagebox.showerror("Error", "Network connection is slow or unavailable. Please try again later.")
+            self.logout_clicked(confirm=False)
         self.show_dashboard()
 
     def transactions_clicked(self):
         self.set_active('transactions')
+        ping = self.session.get_ping("google.com")
+        print(f"Ping: {ping} ms")  
+        if ping is None or ping > 200 or ping == 0:
+            messagebox.showerror("Error", "Network connection is slow or unavailable. Please try again later.")
+            self.logout_clicked(confirm=False)
         self.show_transactions()
 
     def settings_clicked(self):
         self.set_active('settings')
+        ping = self.session.get_ping("google.com")
+        print(f"Ping: {ping} ms")  
+        if ping is None or ping > 200 or ping == 0:
+            messagebox.showerror("Error", "Network connection is slow or unavailable. Please try again later.")
+            self.logout_clicked(confirm=False)
         self.show_settings()
 
     def show_dashboard(self):
@@ -135,8 +154,10 @@ class PayPerksDashboard:
 
     def logout_clicked(self, confirm=True):
         """Handle logout - optionally confirm"""
-        from tkinter import messagebox
-
+        if self.session_check_id:
+            self.window.after_cancel(self.session_check_id)
+            self.session_check_id = None
+        print("Thread stopped immediately")    
         def perform_logout():
             self.db.invalidate_session(self.session_id)
             self.db.close()
@@ -155,20 +176,30 @@ class PayPerksDashboard:
 
     def refresh_dashboard(self):
         def task():
-            session_manager = SessionManager(self.db)
-            new_expiry = session_manager.refresh_session(self.session_id)
+            new_expiry = self.session_manager.refresh_session(self.session_id)
             if new_expiry:
                 self.expiry = new_expiry
         threading.Thread(target=task, daemon=True).start()
         self.dashboard_home.refresh_data()
         self.dashboard_home.create_activity_chart()
 
+    def start_session_check(self):
+        self.session_check_id = self.window.after(30000, self.check_session_expiry)
+
     def check_session_expiry(self):
-        now = datetime.datetime.now()
+        now = datetime.now()
+        ping = self.session.get_ping("google.com")
+        print(f"Ping: {ping} ms")
+        if ping is None or ping > 200 or ping == 0:
+            messagebox.showerror("Error", "Network connection is slow or unavailable. Please try again later.")
+            self.logout_clicked(confirm=False)
+        print('session_expiry_check')
         if now > self.expiry:
+            messagebox.showinfo(
+                "Session Expired", 
+                "Your session has expired. You will be logged out."
+            )
             self.logout_clicked(confirm=False)
         else:
-            # Check again after 1 minute (60000 ms)
-            self.window.after(60000, self.check_session_expiry)
-
+            self.session_check_id = self.window.after(30000, self.check_session_expiry)
 

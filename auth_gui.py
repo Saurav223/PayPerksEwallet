@@ -9,6 +9,7 @@ import random
 import threading
 from db_queries import DatabaseManager
 from dashboard_main import PayPerksDashboard
+from session_manager import SessionManager
 
 class PayPerksAuth:
     def __init__(self):
@@ -33,6 +34,7 @@ class PayPerksAuth:
 
         self.current_user_email = None
         self.setup_ui()
+        self.sess = SessionManager()
         self.window.after(5000, self.swap_bg_and_animate)
     
     def run(self):
@@ -239,6 +241,11 @@ class PayPerksAuth:
     def signin(self):
         email = self.email_signin.get()
         password = self.code_signin.get()
+        ping = self.sess.get_ping("google.com")
+        print(f"Ping: {ping} ms")
+        if ping is None or ping > 200 or ping == 0:
+            messagebox.showerror("Error", "Network connection is slow or unavailable. Please try again later.")
+            return
 
         if email == '' or password == '':
             messagebox.showerror("Error", "All fields are required")

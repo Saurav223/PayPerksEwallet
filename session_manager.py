@@ -2,10 +2,11 @@ import uuid
 from datetime import datetime, timedelta
 import threading
 from db_queries import DatabaseManager
+from ping3 import ping
 
 
 class SessionManager:
-    def __init__(self,db, db_path: str = "sessions.db", timeout_minutes: int = 5):
+    def __init__(self,db=None,timeout_minutes: int = 2):
         """
         Initialize session manager
         
@@ -13,7 +14,6 @@ class SessionManager:
             db_path: Path to SQLite database file
             timeout_minutes: Session timeout in minutes
         """
-        self.db_path = db_path
         self.timeout_minutes = timeout_minutes
         self.lock = threading.Lock()
         self.db = db
@@ -64,3 +64,10 @@ class SessionManager:
             except Exception as e:
                 print(f"Session refresh error: {e}")
                 return False
+            
+    def get_ping(self,host: str) -> float | None:
+        response = ping(host, timeout=2)
+        print(f"Ping to {host}: {response}")
+        if response is None:
+            return None
+        return round(response * 1000, 2)
